@@ -1,7 +1,7 @@
-// src/rooms/rooms.controller.ts
 import {
   Controller,
   Post,
+  Patch,
   Body,
   Get,
   Param,
@@ -25,5 +25,12 @@ export class RoomsController {
       throw new NotFoundException('Invalid room code');
     }
     return this.roomsService.getRoomByCode(code);
+  }
+
+  @Patch(':code/start')
+  async startGame(
+    @Param('code') code: string,
+  ) {
+    return this.roomsService.startGame(code);
   }
 }

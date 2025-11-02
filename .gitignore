@@ -3,3 +3,7 @@ node_modules
 dist
 build
 .prisma
+
+# Never track nested .git
+backend/.git
+frontend/.git

@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { customAlphabet } from 'nanoid';
 import axios from 'axios';
 import { CreateRoomDto } from './dto/create-room.dto';
+import { PusherService } from '../pusher/pusher.service';
 
 const nanoid = customAlphabet('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', 6);
 
@@ -20,6 +21,7 @@ export class RoomsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly pusherService: PusherService,
   ) {
     this.sudokuApiKey = this.config.getOrThrow('SUDOKU_API_KEY');
   }
@@ -98,10 +100,19 @@ export class RoomsService {
   }
 
   /** (Future) Start game – update status */
-  async startGame(roomCode: string) {
-    return this.prisma.room.update({
-      where: { roomCode },
-      data: { status: 'started' },
-    });
-  }
+async startGame(roomCode: string) {
+  const room = await this.prisma.room.update({
+    where: { roomCode },
+    data: { status: 'started' },
+  });
+
+  // Notify all clients in the room
+  await this.pusherService.trigger(
+    `presence-room-${roomCode}`,
+    'game-started',
+    { status: 'started' },
+  );
+
+  return { success: true, roomCode };
+}
 }
