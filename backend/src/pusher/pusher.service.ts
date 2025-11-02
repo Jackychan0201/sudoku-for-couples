@@ -21,7 +21,8 @@ export class PusherService {
     return this.pusher.trigger(channel, event, data);
   }
 
-  async authenticatePresence(userId: string, channel: string, userInfo: any) {
-    return this.pusher.authenticate(userId, channel, userInfo);
+  // Called by the auth endpoint
+  authenticatePresence(socketId: string, channelName: string, presenceData: any) {
+    return this.pusher.authenticate(socketId, channelName, presenceData);
   }
 }

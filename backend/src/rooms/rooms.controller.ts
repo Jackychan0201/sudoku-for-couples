@@ -33,4 +33,13 @@ export class RoomsController {
   ) {
     return this.roomsService.startGame(code);
   }
+
+  @Post(':code/validate')
+  async validate(
+    @Param('code') code: string,
+    @Body() body: any,
+  ) {
+    // body should include: clientId, name, grid
+    return this.roomsService.handleValidation(code, body);
+  }
 }

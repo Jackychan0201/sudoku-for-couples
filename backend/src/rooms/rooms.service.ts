@@ -26,6 +26,9 @@ export class RoomsService {
     this.sudokuApiKey = this.config.getOrThrow('SUDOKU_API_KEY');
   }
 
+  // in-memory submissions map for competitive mode: roomCode -> first submission
+  private submissions: Map<string, { clientId: string; name?: string; grid: any }[]> = new Map();
+
   /** Generate a unique 6-char room code */
   private async generateUniqueCode(): Promise<string> {
     let code: string = "";
@@ -115,4 +118,60 @@ async startGame(roomCode: string) {
 
   return { success: true, roomCode };
 }
+
+  /** Handle validation requests coming from clients */
+  async handleValidation(roomCode: string, body: any) {
+    const { clientId, name, grid } = body ?? {};
+
+    const room = await this.prisma.room.findUnique({ where: { roomCode } });
+    if (!room) throw new NotFoundException('Room not found');
+
+    const solution = room.solution as any;
+    const mode = room.mode;
+
+    // Together mode: broadcast solution + the provided grid to all clients
+    if (mode === 'together') {
+      await this.pusherService.trigger(
+        `presence-room-${roomCode}`,
+        'show-validation',
+        {
+          mode: 'together',
+          solution,
+          submissions: [{ clientId, name, grid }],
+        },
+      );
+      return { status: 'done' };
+    }
+
+    // Competitive mode: collect submissions
+    const existing = this.submissions.get(roomCode) ?? [];
+
+    // If this is the first submission, store and notify others
+    if (existing.length === 0) {
+      this.submissions.set(roomCode, [{ clientId, name, grid }]);
+      await this.pusherService.trigger(
+        `presence-room-${roomCode}`,
+        'player-finished',
+        { clientId, name },
+      );
+      return { status: 'waiting' };
+    }
+
+    // If there is already a submission, pair them and broadcast results
+    const first = existing[0];
+    // clear stored submissions
+    this.submissions.delete(roomCode);
+
+    await this.pusherService.trigger(
+      `presence-room-${roomCode}`,
+      'show-validation',
+      {
+        mode: 'competitive',
+        solution,
+        submissions: [first, { clientId, name, grid }],
+      },
+    );
+
+    return { status: 'done' };
+  }
 }
