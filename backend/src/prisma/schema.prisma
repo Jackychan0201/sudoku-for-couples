@@ -1,0 +1,24 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Room {
+  id         String   @id @default(uuid())
+  roomCode   String   @unique  // e.g., 6-char random code
+  mode       String   // "together" or "competitive"
+  difficulty String   // "easy", "medium", "hard"
+  puzzle     Json     // 9x9 array with nulls for empties
+  solution   Json     // 9x9 filled array
+  status     String   @default("waiting")  // waiting, started, finished
+  sharedGrid Json?    // For together mode: current grid state
+  player1Grid Json?   // For competitive: player grids (assume 2 players)
+  player1Finished Boolean @default(false)
+  player2Grid Json?
+  player2Finished Boolean @default(false)
+  createdAt  DateTime @default(now())
+}
