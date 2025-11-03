@@ -36,7 +36,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-4 flex items-center justify-center">
+  <div className="min-h-screen bg-linear-to-br from-purple-50 to-pink-50 p-4 flex items-center justify-center">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-center text-2xl">Sudoku for Couples</CardTitle>
