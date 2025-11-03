@@ -29,6 +29,8 @@ export default function RoomPage() {
   const clientId = useRef<string>(Math.random().toString(36).substring(2, 9));
   const [playerLabels, setPlayerLabels] = useState<Record<string, string>>({});
   const roomRef = useRef<Room | null>(null);
+  const memberIdsRef = useRef<string[]>([]);
+  const pusherIdRef = useRef<string | null>(null);
 
   const channelName = `presence-room-${code}`;
   const canEdit = room?.status === 'started';
@@ -150,12 +152,46 @@ export default function RoomPage() {
         let ids: string[] = [];
         if (members?.members && typeof members.members === 'object') {
           ids = Object.keys(members.members);
+          // try capture our own presence id
+          try {
+            const me = (members as any).me ?? undefined;
+            if (me && me.id) pusherIdRef.current = me.id;
+            else if ((members as any).myID) pusherIdRef.current = (members as any).myID;
+          } catch (e) {}
+          memberIdsRef.current = ids;
         } else if (typeof members.each === 'function') {
           const tmp: string[] = [];
           members.each((m: any) => tmp.push(m.id));
           ids = tmp;
+          try {
+            if ((members as any).myID) pusherIdRef.current = (members as any).myID;
+          } catch (e) {}
+          memberIdsRef.current = ids;
         }
+
         recomputeLabels(ids);
+
+        // If this client just created the room, announce the creator so everyone
+        // agrees on who is Player 1. This uses localStorage as a simple signal
+        // set during room creation.
+        try {
+          const isCreator = localStorage.getItem(`room:${code}:creator`) === 'true';
+          if (isCreator && pusherIdRef.current) {
+            (async () => {
+              try {
+                await api.post('/pusher/trigger', {
+                  channel: channelName,
+                  event: 'room-creator',
+                  data: { creatorId: pusherIdRef.current },
+                });
+              } catch (err) {
+                console.warn('Failed to announce room creator', err);
+              }
+            })();
+          }
+        } catch (e) {
+          // ignore localStorage failures
+        }
       } catch (e) {
         // ignore
       }
@@ -166,7 +202,8 @@ export default function RoomPage() {
       // recompute labels by combining known ids + the new one
       let newMap: Record<string, string> | undefined;
       try {
-        const ids = Object.keys(playerLabels).concat(member.id).filter(Boolean);
+        const ids = Array.from(new Set([...(memberIdsRef.current || []), member.id]));
+        memberIdsRef.current = ids;
         newMap = recomputeLabels(ids);
       } catch (e) {
         // ignore
@@ -182,12 +219,30 @@ export default function RoomPage() {
         // capture the label for the leaving member before removing it; if missing,
         // compute a fallback label so toasts read "Player 1 left" instead of "Player left".
         const leavingLabel = getPlayerLabel(member.id) ?? 'Player';
-        const ids = Object.keys(playerLabels).filter(id => id !== member.id);
+        const ids = (memberIdsRef.current || []).filter(id => id !== member.id);
+        memberIdsRef.current = ids;
         recomputeLabels(ids);
         toast.info(`${leavingLabel} left`);
       } catch (e) {
         // ignore
         toast.info(`A player left`);
+      }
+    });
+
+    // If a creator announcement is broadcasted, prefer that id as Player 1
+    channel.bind('room-creator', (payload: any) => {
+      try {
+        const creatorId = payload?.creatorId;
+        if (!creatorId) return;
+        // reorder member ids so the creator comes first
+        const ids = Array.from(new Set([creatorId, ...(memberIdsRef.current || [])]));
+        // remove duplicates while preserving order
+        const dedup: string[] = [];
+        for (const id of ids) if (!dedup.includes(id)) dedup.push(id);
+        memberIdsRef.current = dedup;
+        recomputeLabels(dedup);
+      } catch (e) {
+        // ignore
       }
     });
 
@@ -285,6 +340,9 @@ export default function RoomPage() {
           <p className="text-sm text-gray-600 mt-1">
             Mode: <strong className="capitalize">{room.mode}</strong> | 
             Players: <strong>{players}/2</strong>
+          </p>
+          <p className="text-sm text-gray-600 mt-1">
+            You: <strong>{getPlayerLabel(pusherIdRef.current ?? undefined)}</strong>
           </p>
         </CardHeader>
 
