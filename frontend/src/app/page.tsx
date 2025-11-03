@@ -72,7 +72,7 @@ export default function Home() {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2">
-            Sudoku Duos
+            Sudoku4Couples
           </h1>
           <p className="text-lg text-gray-600">Connect, challenge, and conquer together</p>
         </div>

@@ -5,12 +5,16 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import { customAlphabet } from 'nanoid';
 import axios from 'axios';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { PusherService } from '../pusher/pusher.service';
 
-const nanoid = customAlphabet('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', 6);
+let nanoid: () => string;
+
+(async () => {
+  const { customAlphabet } = await import('nanoid');
+  nanoid = customAlphabet('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', 6);
+})();
 
 @Injectable()
 export class RoomsService {
